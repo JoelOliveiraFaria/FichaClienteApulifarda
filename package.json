@@ -1,0 +1,31 @@
+{
+  "name": "fichaclienteapulifarda",
+  "version": "1.0.0",
+  "description": "Uma pequena app para a empresa Apulifarda com a possibilidade de criar fichas de cliente e encomendas",
+  "main": "main.cjs",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JoelOliveiraFaria/FichaClienteApulifarda.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/JoelOliveiraFaria/FichaClienteApulifarda/issues"
+  },
+  "homepage": "https://github.com/JoelOliveiraFaria/FichaClienteApulifarda#readme",
+  "devDependencies": {
+    "electron": "^39.2.4",
+    "electron-builder": "^26.0.12",
+    "electron-reload": "^2.0.0-alpha.1"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.5.0"
+  }
+}
