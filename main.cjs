@@ -113,9 +113,21 @@ function createWindow() {
         }
     });
 
-    win.loadFile(path.join(__dirname, 'frontend', 'build', 'index.html'));
-}
+    // Abrir DevTools para debug
+    win.webContents.openDevTools();
 
+    // Em desenvolvimento, usar o servidor React
+    if (process.env.NODE_ENV !== 'production') {
+        win.loadURL('http://localhost:3000');
+    } else {
+        win.loadFile(path.join(__dirname, 'frontend', 'build', 'index.html'));
+    }
+    
+    // Log de erros
+    win.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+        console.error('Falha ao carregar:', errorCode, errorDescription);
+    });
+}
 app.whenReady().then(() => {
     db = initDatabase(); 
     createWindow();

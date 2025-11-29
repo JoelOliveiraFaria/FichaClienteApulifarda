@@ -5,9 +5,14 @@
   "main": "main.cjs",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "electron .",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "start": "concurrently \"npm run start:react\" \"npm run start:electron\"",
+    "start:react": "cd frontend && npm start",
+    "start:electron": "wait-on http://localhost:3000 && electron .",
+    "electron": "electron .",
+    "build": "cd frontend && npm run build",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "rebuild": "electron-rebuild -f -w better-sqlite3"
   },
   "repository": {
     "type": "git",
@@ -21,9 +26,12 @@
   },
   "homepage": "https://github.com/JoelOliveiraFaria/FichaClienteApulifarda#readme",
   "devDependencies": {
+    "concurrently": "^8.2.2",
     "electron": "^39.2.4",
     "electron-builder": "^26.0.12",
-    "electron-reload": "^2.0.0-alpha.1"
+    "electron-rebuild": "^3.2.9",
+    "electron-reload": "^2.0.0-alpha.1",
+    "wait-on": "^7.2.0"
   },
   "dependencies": {
     "better-sqlite3": "^12.5.0"
