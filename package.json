@@ -9,9 +9,10 @@
     "start:react": "cd frontend && npm start",
     "start:electron": "wait-on http://localhost:3000 && electron .",
     "electron": "electron .",
-    "build": "cd frontend && npm run build",
-    "pack": "npm run build && electron-builder --dir",
-    "dist": "npm run build && electron-builder",
+    "build:react": "cd frontend && npm run build",
+    "build": "npm run build:react",
+    "pack": "npm run build:react && electron-builder --dir",
+    "dist": "npm run build:react && electron-builder",
     "rebuild": "electron-rebuild -f -w better-sqlite3"
   },
   "repository": {
@@ -35,5 +36,22 @@
   },
   "dependencies": {
     "better-sqlite3": "^12.5.0"
+  },
+  "build": {
+    "appId": "com.fichacliente.apulifarda",
+    "productName": "FichaClienteApulifarda",
+    "asar": true,
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "frontend/build/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "buildResources": "assets"
+    },
+    "win": {
+      "target": "nsis"
+    }
   }
 }

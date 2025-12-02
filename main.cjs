@@ -4,13 +4,13 @@ const Datastore = require('better-sqlite3');
 
 let db;
 
-// Live reload só em dev
-if (process.env.NODE_ENV !== 'production') {
-  require('electron-reload')(__dirname, {
-    electron: path.join(__dirname, 'node_modules', '.bin', 'electron'),
-    hardResetMethod: 'exit'
-  });
-}
+// // Live reload só em dev
+// if (process.env.NODE_ENV !== 'production') {
+//   require('electron-reload')(__dirname, {
+//     electron: path.join(__dirname, 'node_modules', '.bin', 'electron'),
+//     hardResetMethod: 'exit'
+//   });
+// }
 
 function initDatabase() {
   const dbPath = path.join(app.getPath('userData'), 'clientes.db');
@@ -163,9 +163,11 @@ function createWindow() {
   });
 
   if (process.env.NODE_ENV !== 'production') {
+    // DEV: React em localhost
     win.webContents.openDevTools();
     win.loadURL('http://localhost:3000');
   } else {
+    // PRODUÇÃO: React build dentro do pacote
     win.loadFile(path.join(__dirname, 'frontend', 'build', 'index.html'));
   }
 
@@ -173,7 +175,6 @@ function createWindow() {
     console.error('Falha ao carregar:', errorCode, errorDescription);
   });
 }
-
 app.whenReady().then(() => {
   initDatabase();
   createWindow();
