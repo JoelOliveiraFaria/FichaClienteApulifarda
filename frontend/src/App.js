@@ -1,94 +1,131 @@
 import React, { useState, useEffect } from "react";
+import ClienteForm from "./components/ClienteForm";
+import ClienteList from "./components/ClienteList";
 import EncomendaList from "./components/EncomendaList";
-import ClienteForm from "./components/ClienteForm"; // vamos criar este componente
 
 function App() {
   const [clientes, setClientes] = useState([]);
-  const [selectedCliente, setSelectedCliente] = useState(null);
-  const [page, setPage] = useState("home"); // home ou criar-cliente
+  const [clienteSelecionado, setClienteSelecionado] = useState(null);
+  const [page, setPage] = useState("home");
 
-  // Carregar lista de clientes
-  const loadClientes = async () => {
-    try {
-      const data = await window.electronAPI.getClientes();
-      setClientes(data);
-      if (data.length > 0 && !selectedCliente) {
-        setSelectedCliente(data[0]);
-      }
-    } catch (err) {
-      console.error("Erro ao carregar clientes:", err);
+const loadClientes = async () => {
+  if (!window.electronAPI) return;
+  try {
+    const data = await window.electronAPI.getClientes();
+    console.log("getClientes:", data);
+    setClientes(Array.isArray(data) ? data : []);
+    if (data.length > 0 && !clienteSelecionado) {
+      setClienteSelecionado(data[0]);
     }
-  };
+  } catch (err) {
+    console.error("Erro ao carregar clientes:", err);
+  }
+};
 
   useEffect(() => {
     loadClientes();
   }, []);
 
-  const handleSelectCliente = (cliente) => {
-    setSelectedCliente(cliente);
-  };
+  // Callbacks simples para os componentes
+const handleClienteSaved = async (cliente) => {
+  try {
+    if (cliente.id) {
+      // editar
+      await window.electronAPI.updateCliente(cliente);
+    } else {
+      // novo
+      await window.electronAPI.addCliente(cliente);
+    }
+    await loadClientes();    // recarrega lista
+    setPage("home");         // volta à página inicial
+  } catch (err) {
+    console.error("Erro ao salvar cliente:", err);
+  }
+};
 
-  const goToCreateCliente = () => {
+  const handleClienteEdit = (cliente) => {
+    setClienteSelecionado(cliente);
     setPage("criar-cliente");
   };
 
-  const goHome = () => {
-    setPage("home");
-    loadClientes(); // recarrega lista após criar cliente
+  const handleClienteDelete = async () => {
+    await loadClientes();
   };
 
+  const handleClienteSelect = (cliente) => {
+    setClienteSelecionado(cliente);
+  };
+
+  const goToCreate = () => {
+    setClienteSelecionado(null);
+    setPage("criar-cliente");
+  };
+
+  const goHome = () => setPage("home");
+
   return (
-    <div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
-      <h1>Gestão de Clientes e Encomendas</h1>
+    <div style={{ padding: "20px", fontFamily: "Arial, sans-serif", maxWidth: "1400px" }}>
+      <h1>🛒 Gestão de Clientes e Encomendas</h1>
 
+      {/* PÁGINA HOME: Lista + Cliente selecionado */}
       {page === "home" && (
-        <>
-          <button onClick={goToCreateCliente} style={{ marginBottom: "10px", padding: "5px 10px" }}>
-            Criar Cliente
-          </button>
-
-          <div style={{ marginBottom: "20px" }}>
-            <h2>Clientes</h2>
-            {clientes.length === 0 && <p>Nenhum cliente encontrado.</p>}
-            {clientes.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => handleSelectCliente(c)}
-                style={{
-                  marginRight: "5px",
-                  marginBottom: "5px",
-                  padding: "5px 10px",
-                  backgroundColor: selectedCliente && selectedCliente.id === c.id ? "#ccc" : "#eee",
-                }}
+        <div style={{ display: "flex", gap: "20px" }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ marginBottom: "10px", display: "flex", gap: "10px" }}>
+              <button 
+                onClick={goToCreate}
+                style={{ padding: "8px 16px", background: "#007bff", color: "white", border: "none", borderRadius: "4px" }}
               >
-                {c.nome}
+                Novo Cliente
               </button>
-            ))}
+            </div>
+            <ClienteList
+              clientes={clientes}
+              onEdit={handleClienteEdit}
+              onVerEncomendas={handleClienteSelect}
+              onDelete={handleClienteDelete}
+            />
           </div>
 
-          {selectedCliente && (
-            <div>
-              <h2>Cliente: {selectedCliente.nome}</h2>
-              <p>Email: {selectedCliente.email}</p>
-              <p>Contato Empresarial: {selectedCliente.contatoEmpresarial}</p>
-              <p>Contato Pessoal: {selectedCliente.contatoPessoal}</p>
-              <p>Morada: {selectedCliente.morada}</p>
-              <p>NIF: {selectedCliente.nif}</p>
-
-              {/* Lista de encomendas do cliente */}
-              <EncomendaList clienteId={selectedCliente.id} />
+          {/* Detalhes do cliente + encomendas */}
+          {clienteSelecionado && (
+            <div style={{ flex: 2 }}>
+              <div style={{ 
+                background: "#f8f9fa", 
+                padding: "20px", 
+                borderRadius: "8px", 
+                marginBottom: "20px",
+                border: "1px solid #dee2e6"
+              }}>
+                <h3>👤 {clienteSelecionado.nome}</h3>
+                <p><strong>Email:</strong> {clienteSelecionado.email || "—"}</p>
+                <p><strong>Contato Empresarial:</strong> {clienteSelecionado.contatoEmpresarial || "—"}</p>
+                <p><strong>Contato Pessoal:</strong> {clienteSelecionado.contatoPessoal || "—"}</p>
+                <p><strong>Morada:</strong> {clienteSelecionado.morada || "—"}</p>
+                <p><strong>NIF:</strong> {clienteSelecionado.nif || "—"}</p>
+              </div>
+              <EncomendaList clienteId={clienteSelecionado.id} />
             </div>
           )}
-        </>
+        </div>
       )}
 
+      {/* PÁGINA FORMULÁRIO */}
       {page === "criar-cliente" && (
         <div>
-          <h2>Criar Cliente</h2>
-          <button onClick={goHome} style={{ marginBottom: "10px", padding: "5px 10px" }}>
-            Voltar
-          </button>
-          <ClienteForm onSaved={goHome} />
+          <div style={{ display: "flex", alignItems: "center", gap: "15px", marginBottom: "20px" }}>
+            <button 
+              onClick={goHome}
+              style={{ padding: "8px 16px", background: "#6c757d", color: "white", border: "none", borderRadius: "4px" }}
+            >
+              ← Voltar
+            </button>
+            <h2>{clienteSelecionado ? "✏️ Editar Cliente" : "Novo Cliente"}</h2>
+          </div>
+          <ClienteForm 
+            onSaved={handleClienteSaved} 
+            cliente={clienteSelecionado} 
+          />
         </div>
       )}
     </div>
