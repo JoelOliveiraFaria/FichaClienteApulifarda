@@ -4,13 +4,7 @@ const Datastore = require('better-sqlite3');
 
 let db;
 
-// // Live reload só em dev
-// if (process.env.NODE_ENV !== 'production') {
-//   require('electron-reload')(__dirname, {
-//     electron: path.join(__dirname, 'node_modules', '.bin', 'electron'),
-//     hardResetMethod: 'exit'
-//   });
-// }
+/* ---------------------- DB INIT ---------------------- */
 
 function initDatabase() {
   const dbPath = path.join(app.getPath('userData'), 'clientes.db');
@@ -30,30 +24,41 @@ function initDatabase() {
     )
   `).run();
 
+  // Cabeçalho da encomenda
   db.prepare(`
     CREATE TABLE IF NOT EXISTS encomenda (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       cliente_id INTEGER,
       nome TEXT,
-      tamanho TEXT,
-      quantidade INTEGER,
-      preco REAL,
       observacoes TEXT,
       dataCriacao datetime DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE
+    )
+  `).run();
+
+  // Linhas da encomenda (cada tamanho/quantidade/preço)
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS encomenda_item (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      encomenda_id INTEGER,
+      tamanho TEXT,
+      quantidade INTEGER,
+      preco REAL,
+      FOREIGN KEY (encomenda_id) REFERENCES encomenda(id) ON DELETE CASCADE
     )
   `).run();
 }
 
 /* ---------------------- IPC HANDLERS ---------------------- */
 
-// CLIENTES
+/* CLIENTES */
+
 ipcMain.handle('get-clientes', () => {
   const stmt = db.prepare('SELECT * FROM clientes ORDER BY dataCriacao DESC');
-  return stmt.all(); // ← SEMPRE retorna array
+  return stmt.all();
 });
 
-ipcMain.handle('add-cliente', async (event, cliente) => {
+ipcMain.handle('add-cliente', (event, cliente) => {
   const stmt = db.prepare(`
     INSERT INTO clientes (nome, email, contatoEmpresarial, contatoPessoal, morada, nif)
     VALUES (?, ?, ?, ?, ?, ?)
@@ -66,7 +71,6 @@ ipcMain.handle('add-cliente', async (event, cliente) => {
     cliente.morada,
     cliente.nif
   );
-  // Retorna o cliente CRIADO completo
   const created = db.prepare('SELECT * FROM clientes WHERE id = ?').get(info.lastInsertRowid);
   return created;
 });
@@ -76,7 +80,7 @@ ipcMain.handle('get-cliente-by-id', (event, id) => {
   return stmt.get(id);
 });
 
-ipcMain.handle('update-cliente', async (event, cliente) => {
+ipcMain.handle('update-cliente', (event, cliente) => {
   const stmt = db.prepare(`
     UPDATE clientes
     SET nome = ?, email = ?, contatoEmpresarial = ?, contatoPessoal = ?, morada = ?, nif = ?
@@ -91,7 +95,6 @@ ipcMain.handle('update-cliente', async (event, cliente) => {
     cliente.nif,
     cliente.id
   );
-  // Retorna o cliente ATUALIZADO completo
   const updated = db.prepare('SELECT * FROM clientes WHERE id = ?').get(cliente.id);
   return updated;
 });
@@ -101,49 +104,84 @@ ipcMain.handle('delete-cliente', (event, id) => {
   return stmt.run(id);
 });
 
-// ENCOMENDAS
+/* ENCOMENDAS (cabeçalho) */
+
+// lista de encomendas de um cliente (sem itens)
 ipcMain.handle('get-encomendas', (event, cliente_id) => {
   const stmt = db.prepare('SELECT * FROM encomenda WHERE cliente_id = ? ORDER BY dataCriacao DESC');
-  return stmt.all(cliente_id); // ← SEMPRE retorna array
+  return stmt.all(cliente_id);
 });
 
-ipcMain.handle('add-encomenda', async (event, e) => {
-  const stmt = db.prepare(`
-    INSERT INTO encomenda (cliente_id, nome, tamanho, quantidade, preco, observacoes)
-    VALUES (?, ?, ?, ?, ?, ?)
+// itens de uma encomenda
+ipcMain.handle('get-encomenda-itens', (event, encomenda_id) => {
+  const stmt = db.prepare('SELECT * FROM encomenda_item WHERE encomenda_id = ?');
+  return stmt.all(encomenda_id);
+});
+
+// criar encomenda + itens
+ipcMain.handle('add-encomenda', (event, encomenda) => {
+  const insertHeader = db.prepare(`
+    INSERT INTO encomenda (cliente_id, nome, observacoes)
+    VALUES (?, ?, ?)
   `);
-  const info = stmt.run(
-    e.cliente_id,
-    e.nome,
-    e.tamanho,
-    e.quantidade,
-    e.preco,
-    e.observacoes
+  const info = insertHeader.run(
+    encomenda.cliente_id,
+    encomenda.nome,
+    encomenda.observacoes || null
   );
-  // Retorna a encomenda CRIADA completa
-  const created = db.prepare('SELECT * FROM encomenda WHERE id = ?').get(info.lastInsertRowid);
+  const encomendaId = info.lastInsertRowid;
+
+  const insertItem = db.prepare(`
+    INSERT INTO encomenda_item (encomenda_id, tamanho, quantidade, preco)
+    VALUES (?, ?, ?, ?)
+  `);
+  const items = Array.isArray(encomenda.items) ? encomenda.items : [];
+  for (const item of items) {
+    insertItem.run(
+      encomendaId,
+      item.tamanho || null,
+      Number(item.quantidade) || 0,
+      Number(item.preco) || 0
+    );
+  }
+
+  const created = db.prepare('SELECT * FROM encomenda WHERE id = ?').get(encomendaId);
   return created;
 });
 
-ipcMain.handle('update-encomenda', async (event, e) => {
-  const stmt = db.prepare(`
+// atualizar encomenda + substituir itens
+ipcMain.handle('update-encomenda', (event, encomenda) => {
+  db.prepare(`
     UPDATE encomenda
-    SET nome = ?, tamanho = ?, quantidade = ?, preco = ?, observacoes = ?
+    SET nome = ?, observacoes = ?
     WHERE id = ?
-  `);
-  stmt.run(
-    e.nome,
-    e.tamanho,
-    e.quantidade,
-    e.preco,
-    e.observacoes,
-    e.id
+  `).run(
+    encomenda.nome,
+    encomenda.observacoes || null,
+    encomenda.id
   );
-  // Retorna a encomenda ATUALIZADA completa
-  const updated = db.prepare('SELECT * FROM encomenda WHERE id = ?').get(e.id);
+
+  db.prepare('DELETE FROM encomenda_item WHERE encomenda_id = ?').run(encomenda.id);
+
+  const insertItem = db.prepare(`
+    INSERT INTO encomenda_item (encomenda_id, tamanho, quantidade, preco)
+    VALUES (?, ?, ?, ?)
+  `);
+  const items = Array.isArray(encomenda.items) ? encomenda.items : [];
+  for (const item of items) {
+    insertItem.run(
+      encomenda.id,
+      item.tamanho || null,
+      Number(item.quantidade) || 0,
+      Number(item.preco) || 0
+    );
+  }
+
+  const updated = db.prepare('SELECT * FROM encomenda WHERE id = ?').get(encomenda.id);
   return updated;
 });
 
+// apagar encomenda (itens caem pelo ON DELETE CASCADE)
 ipcMain.handle('delete-encomenda', (event, id) => {
   const stmt = db.prepare('DELETE FROM encomenda WHERE id = ?');
   return stmt.run(id);
@@ -158,19 +196,17 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
-      contextIsolation: true
-    }
+      contextIsolation: true,
+    },
   });
 
   const isDev = !app.isPackaged;
 
   if (isDev) {
-    // DEV: React em localhost
     win.webContents.openDevTools();
     win.loadURL('http://localhost:3000');
   } else {
-    // PRODUÇÃO: React build dentro do pacote
-    const indexPath = path.join(process.resourcesPath, 'frontend', 'build', 'index.html');
+    const indexPath = path.join(__dirname, 'frontend', 'build', 'index.html');
     win.loadFile(indexPath);
   }
 
@@ -178,6 +214,7 @@ function createWindow() {
     console.error('Falha ao carregar:', errorCode, errorDescription);
   });
 }
+
 app.whenReady().then(() => {
   initDatabase();
   createWindow();

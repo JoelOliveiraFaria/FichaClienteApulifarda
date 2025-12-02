@@ -55,8 +55,7 @@
       "buildResources": "assets"
     },
     "win": {
-      "target": "nsis",
-      "sign": false
+      "target": "nsis"
     }
   }
 }

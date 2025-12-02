@@ -3,24 +3,50 @@ import EncomendaForm from "./EncomendaForm";
 
 export default function EncomendaList({ clienteId }) {
   const [encomendas, setEncomendas] = useState([]);
-  const [editing, setEditing] = useState(null); // encomenda que está a ser editada
+  const [totais, setTotais] = useState({});   // { [id]: total }
+  const [tamanhos, setTamanhos] = useState({}); // { [id]: "M×5, L×2" }
+  const [editing, setEditing] = useState(null);
   const [showForm, setShowForm] = useState(false);
 
-  // Carregar encomendas do cliente
   const loadEncomendas = async () => {
     try {
       const data = await window.electronAPI.getEncomendas(clienteId);
       setEncomendas(data);
+
+      const novosTotais = {};
+      const novosTamanhos = {};
+
+      for (const enc of data) {
+        const itens = await window.electronAPI.getEncomendaItens(enc.id);
+
+        const total = itens.reduce(
+          (acc, it) =>
+            acc + (Number(it.quantidade) || 0) * (Number(it.preco) || 0),
+          0
+        );
+        novosTotais[enc.id] = total;
+
+        // resumo de tamanhos, ex: "M×5, L×2"
+        const resumo = itens
+          .map(
+            (it) =>
+              `${it.tamanho || "—"}×${it.quantidade != null ? it.quantidade : 0}`
+          )
+          .join(", ");
+        novosTamanhos[enc.id] = resumo || "—";
+      }
+
+      setTotais(novosTotais);
+      setTamanhos(novosTamanhos);
     } catch (err) {
       console.error("Erro ao carregar encomendas:", err);
     }
   };
 
   useEffect(() => {
-    loadEncomendas();
+    if (clienteId) loadEncomendas();
   }, [clienteId]);
 
-  // Apagar encomenda
   const handleDelete = async (id) => {
     if (!window.confirm("Tem a certeza que deseja apagar esta encomenda?")) return;
 
@@ -32,13 +58,12 @@ export default function EncomendaList({ clienteId }) {
     }
   };
 
-  // Abrir form para editar
-  const handleEdit = (encomenda) => {
-    setEditing(encomenda);
+  const handleEdit = async (encomenda) => {
+    const itens = await window.electronAPI.getEncomendaItens(encomenda.id);
+    setEditing({ ...encomenda, items: itens });
     setShowForm(true);
   };
 
-  // Abrir form para criar
   const handleAdd = () => {
     setEditing(null);
     setShowForm(true);
@@ -67,10 +92,10 @@ export default function EncomendaList({ clienteId }) {
         <thead>
           <tr style={{ backgroundColor: "#eee" }}>
             <th style={{ border: "1px solid #ccc", padding: "5px" }}>Nome</th>
-            <th style={{ border: "1px solid #ccc", padding: "5px" }}>Tamanho</th>
-            <th style={{ border: "1px solid #ccc", padding: "5px" }}>Quantidade</th>
-            <th style={{ border: "1px solid #ccc", padding: "5px" }}>Preço (€)</th>
+            <th style={{ border: "1px solid #ccc", padding: "5px" }}>Tamanhos</th>
+            <th style={{ border: "1px solid #ccc", padding: "5px" }}>Data</th>
             <th style={{ border: "1px solid #ccc", padding: "5px" }}>Observações</th>
+            <th style={{ border: "1px solid #ccc", padding: "5px" }}>Total (€)</th>
             <th style={{ border: "1px solid #ccc", padding: "5px" }}>Ações</th>
           </tr>
         </thead>
@@ -85,12 +110,25 @@ export default function EncomendaList({ clienteId }) {
           {encomendas.map((e) => (
             <tr key={e.id}>
               <td style={{ border: "1px solid #ccc", padding: "5px" }}>{e.nome}</td>
-              <td style={{ border: "1px solid #ccc", padding: "5px" }}>{e.tamanho}</td>
-              <td style={{ border: "1px solid #ccc", padding: "5px" }}>{e.quantidade}</td>
-              <td style={{ border: "1px solid #ccc", padding: "5px" }}>{e.preco.toFixed(2)}</td>
-              <td style={{ border: "1px solid #ccc", padding: "5px" }}>{e.observacoes}</td>
               <td style={{ border: "1px solid #ccc", padding: "5px" }}>
-                <button onClick={() => handleEdit(e)} style={{ marginRight: "5px" }}>
+                {tamanhos[e.id] || "—"}
+              </td>
+              <td style={{ border: "1px solid #ccc", padding: "5px" }}>
+                {e.dataCriacao
+                  ? new Date(e.dataCriacao).toLocaleString()
+                  : "—"}
+              </td>
+              <td style={{ border: "1px solid #ccc", padding: "5px" }}>
+                {e.observacoes || "—"}
+              </td>
+              <td style={{ border: "1px solid #ccc", padding: "5px" }}>
+                {totais[e.id] != null ? totais[e.id].toFixed(2) : "0.00"}
+              </td>
+              <td style={{ border: "1px solid #ccc", padding: "5px" }}>
+                <button
+                  onClick={() => handleEdit(e)}
+                  style={{ marginRight: "5px" }}
+                >
                   Editar
                 </button>
                 <button onClick={() => handleDelete(e.id)}>Apagar</button>
