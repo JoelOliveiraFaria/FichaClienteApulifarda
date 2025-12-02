@@ -162,13 +162,16 @@ function createWindow() {
     }
   });
 
-  if (process.env.NODE_ENV !== 'production') {
+  const isDev = !app.isPackaged;
+
+  if (isDev) {
     // DEV: React em localhost
     win.webContents.openDevTools();
     win.loadURL('http://localhost:3000');
   } else {
     // PRODUÇÃO: React build dentro do pacote
-    win.loadFile(path.join(__dirname, 'frontend', 'build', 'index.html'));
+    const indexPath = path.join(process.resourcesPath, 'frontend', 'build', 'index.html');
+    win.loadFile(indexPath);
   }
 
   win.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {

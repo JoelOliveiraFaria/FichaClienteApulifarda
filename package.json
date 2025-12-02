@@ -30,6 +30,7 @@
     "concurrently": "^8.2.2",
     "electron": "^39.2.4",
     "electron-builder": "^26.0.12",
+    "electron-builder-squirrel-windows": "^26.0.12",
     "electron-rebuild": "^3.2.9",
     "electron-reload": "^2.0.0-alpha.1",
     "wait-on": "^7.2.0"
@@ -38,6 +39,9 @@
     "better-sqlite3": "^12.5.0"
   },
   "build": {
+    "asarUnpack" : [],
+    "npmRebuild": false,
+    "compression": "store",
     "appId": "com.fichacliente.apulifarda",
     "productName": "FichaClienteApulifarda",
     "asar": true,
@@ -51,7 +55,8 @@
       "buildResources": "assets"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "sign": false
     }
   }
 }
